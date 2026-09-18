@@ -144,7 +144,11 @@ func (s *server) sendMessage(w http.ResponseWriter, r *http.Request) {
 	count := len(s.telegrams)
 	s.mu.Unlock()
 
-	log.Printf("telegram #%d recu pour le chat %s (%d octets de texte)", count, payload.ChatID, len(payload.Text))
+	// Meme regle que dans le handler de disponibilite : on ne journalise que
+	// des valeurs converties en nombres. `payload.ChatID` vient du corps de
+	// la requete et pourrait contenir des sauts de ligne (injection de logs).
+	chatID, _ := strconv.Atoi(payload.ChatID)
+	log.Printf("telegram #%d recu pour le chat %d (%d octets de texte)", count, chatID, len(payload.Text))
 
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"ok":true,"result":{"message_id":1}}`))

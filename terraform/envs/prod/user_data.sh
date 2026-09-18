@@ -20,7 +20,9 @@ systemctl enable --now amazon-ssm-agent
 K3S_VERSION="${k3s_version}"
 EXPECTED_SHA256="${k3s_installer_sha256}"
 
-curl -sfL https://get.k3s.io -o /tmp/k3s-install.sh
+# Ce script est execute en root : une redirection vers http serait une
+# porte ouverte, d'ou --proto-redir.
+curl -sfL --proto '=https' --proto-redir '=https' --tlsv1.2 https://get.k3s.io -o /tmp/k3s-install.sh
 ACTUAL_SHA256="$(sha256sum /tmp/k3s-install.sh | awk '{print $1}')"
 
 if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
