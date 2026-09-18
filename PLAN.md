@@ -314,10 +314,28 @@ Fichier de référence : **`.github/workflows/ci.yml`** (déjà écrit).
    d'action `sonarqube-quality-gate-action` : elle ferait doublon et dépendrait
    d'un `report-task.txt` — une pièce mobile de plus pour le même résultat.
 
-   f. Une fois le premier scan vert, **ajouter `sonarqube` aux checks requis**
-      du ruleset `Protect main`, et le badge quality gate au README. Pas avant :
-      exiger un check qui n'existe pas encore bloque toutes les PR (c'est
-      exactement ce qui est arrivé avec la règle CodeQL).
+   f. **Donner le token à Dependabot aussi** — piège non évident :
+      ```bash
+      gh secret set SONAR_TOKEN --app dependabot   # meme valeur
+      ```
+      Les secrets Actions et les secrets Dependabot sont **deux magasins
+      distincts**. Une PR Dependabot n'a pas accès aux secrets Actions : sans
+      ce doublon, le job `sonarqube` y échouerait faute de token. Et s'il est
+      devenu un check requis, **plus aucune PR Dependabot ne pourrait être
+      mergée** — la même impasse que la règle CodeQL, en plus sournois.
+
+   g. Une fois le premier scan vert sur `main` ET le secret Dependabot posé,
+      **ajouter `sonarqube` aux checks requis** du ruleset `Protect main`, et
+      les badges quality gate / couverture au README. Pas avant : exiger un
+      check qui ne peut pas aboutir bloque toutes les PR.
+
+   > **Fait le 2026-09-18.** Premier scan CI-based sur `main` : quality gate
+   > **OK**, couverture **70,5 %**, 0 bug, 0 security hotspot. Le passage de
+   > l'automatic analysis au CI-based a changé trois choses visibles :
+   > la couverture est enfin mesurée (elle était absente), `ncloc` est tombé de
+   > 4711 à 2340 lignes (les `sonar.exclusions` sont respectées — Terraform,
+   > policies et manifests ne sont plus comptés comme du code applicatif), et
+   > les vulnérabilités de 20 à 15.
 
 6. **Régler la quality gate** sur le *new code* : 0 bug, 0 vulnérabilité, 0
    security hotspot non revu, couverture ≥ 70 % sur le code nouveau. Ne pas
