@@ -3,6 +3,8 @@
 [![ci](https://github.com/Sekuryn/flexwatch/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Sekuryn/flexwatch/actions/workflows/ci.yml)
 [![codeql](https://github.com/Sekuryn/flexwatch/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Sekuryn/flexwatch/actions/workflows/codeql.yml)
 [![go](https://img.shields.io/github/go-mod/go-version/Sekuryn/flexwatch?label=go)](go.mod)
+[![quality gate](https://sonarcloud.io/api/project_badges/measure?project=Sekuryn_flexwatch&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Sekuryn_flexwatch)
+[![couverture](https://sonarcloud.io/api/project_badges/measure?project=Sekuryn_flexwatch&metric=coverage)](https://sonarcloud.io/component_measures?id=Sekuryn_flexwatch&metric=coverage)
 [![dépendances tierces](https://img.shields.io/badge/d%C3%A9pendances%20tierces-0-brightgreen)](go.mod)
 
 Détecteur de véhicules **Communauto Flex** dans un rayon donné, en Go.
@@ -27,7 +29,7 @@ Ce que la CI exécute à chaque push et à chaque pull request :
 | Dépendances, IaC, secrets | Trivy 0.74 | oui |
 | Policies IaC et Kubernetes | conftest / OPA | oui |
 | Image arm64, scan, SBOM, signature | Docker, Syft, cosign | oui |
-| Quality gate | SonarQube | pas encore branché |
+| Quality gate (new code) | SonarQube Cloud | oui |
 
 Puis, **sans déployer** : image distroless nonroot poussée sur GHCR, **signée
 en keyless** (Sigstore) avec le SBOM CycloneDX attesté. Le déploiement reste
