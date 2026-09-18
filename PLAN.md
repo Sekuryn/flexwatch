@@ -277,19 +277,47 @@ Fichier de référence : **`.github/workflows/ci.yml`** (déjà écrit).
    récentes. C'est la seule version qu'on met à jour *volontairement*, pas au
    petit bonheur de l'action.
 
-5. **Monter SonarQube.** Le plus simple pour un portfolio est
-   [SonarQube Cloud](https://sonarcloud.io) (gratuit sur dépôt public) ou une
-   instance locale le temps d'une démonstration :
-   ```bash
-   docker run -d --name sonarqube -p 9000:9000 sonarqube:community
-   # puis créer un projet "flexwatch" et un token
-   ```
-   Renseigner ensuite dans GitHub :
-   - variable `SONAR_HOST_URL` (*Settings → Variables*) ;
-   - secret `SONAR_TOKEN` (*Settings → Secrets*).
+5. **Monter SonarQube Cloud.** Gratuit sur dépôt public — c'est une des
+   raisons d'avoir rendu celui-ci public.
 
-   Le job `sonarqube` est conditionné à `vars.SONAR_HOST_URL != ''` : sans
-   Sonar configuré, la CI reste verte plutôt que rouge en permanence.
+   **L'ordre compte**, sans quoi la CI passe au rouge entre deux étapes :
+
+   a. **Importer le projet** sur [sonarcloud.io](https://sonarcloud.io) →
+      *Analyze new project* → `Sekuryn/flexwatch`.
+      `sonar-project.properties` étant déjà committé, SonarQube Cloud en déduit
+      un montage CI-based et propose le bon tutoriel.
+
+   b. **Désactiver l'Automatic Analysis** : *Administration → Analysis Method →
+      Automatic Analysis : Off*. Ce n'est pas optionnel — **la couverture Go
+      n'est pas supportée en automatic analysis**, et laisser les deux modes
+      actifs fait échouer le scan sur un conflit de méthodes.
+
+   c. **Vérifier la clé d'organisation** affichée dans l'UI et l'aligner avec
+      `sonar.organization` du fichier de propriétés (on a supposé `sekuryn`).
+
+   d. **Générer un token** (*My Account → Security*) puis :
+      ```bash
+      gh secret set SONAR_TOKEN          # colle le token quand il le demande
+      ```
+
+   e. **En DERNIER**, activer le job :
+      ```bash
+      gh variable set SONAR_HOST_URL --body https://sonarcloud.io
+      ```
+
+   Le job est conditionné à `vars.SONAR_HOST_URL != ''` : tant que la variable
+   est absente, il est `skipped` et la CI reste verte. La poser avant le token
+   rendrait la CI rouge — d'où l'ordre.
+
+   **Le blocage sur gate rouge est porté par `sonar.qualitygate.wait=true`**
+   dans `sonar-project.properties`, méthode documentée par SonarSource. Pas
+   d'action `sonarqube-quality-gate-action` : elle ferait doublon et dépendrait
+   d'un `report-task.txt` — une pièce mobile de plus pour le même résultat.
+
+   f. Une fois le premier scan vert, **ajouter `sonarqube` aux checks requis**
+      du ruleset `Protect main`, et le badge quality gate au README. Pas avant :
+      exiger un check qui n'existe pas encore bloque toutes les PR (c'est
+      exactement ce qui est arrivé avec la règle CodeQL).
 
 6. **Régler la quality gate** sur le *new code* : 0 bug, 0 vulnérabilité, 0
    security hotspot non revu, couverture ≥ 70 % sur le code nouveau. Ne pas

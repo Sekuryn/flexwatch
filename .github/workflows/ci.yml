@@ -166,16 +166,16 @@ jobs:
         with:
           name: coverage
 
-      - name: scan sonarqube
+      # Le blocage sur quality gate rouge est porte par la propriete
+      # `sonar.qualitygate.wait=true` (cf. sonar-project.properties), qui est
+      # la methode documentee par SonarSource : le scanner attend le verdict et
+      # sort en erreur si la gate echoue.
+      #
+      # L'action `sonarqube-quality-gate-action` faisait doublon ici et
+      # dependait du fichier `.scannerwork/report-task.txt` — une piece mobile
+      # de plus pour le meme resultat.
+      - name: scan sonarqube + attente de la quality gate
         uses: SonarSource/sonarqube-scan-action@v7
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
-
-      # La quality gate est le vrai garde-fou : le scan seul ne bloque rien.
-      - name: attendre la quality gate
-        uses: SonarSource/sonarqube-quality-gate-action@v1
-        timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
