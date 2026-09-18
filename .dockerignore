@@ -1,0 +1,19 @@
+# Réduit le contexte de build : moins de fichiers envoyés au daemon, moins de
+# chances d'embarquer un secret local dans une image.
+.git
+.github
+.env
+.env.*
+*.pem
+*.key
+bin/
+dist/
+terraform/
+policy/
+observability/
+docs/
+*.md
+!README.md
+coverage.out
+sbom*.json
+trivy-report.json

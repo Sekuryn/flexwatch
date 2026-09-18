@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: flexwatch
+  namespace: flexwatch
+  labels:
+    app: flexwatch
+spec:
+  # ClusterIP et pas LoadBalancer/NodePort : /metrics ne doit JAMAIS être
+  # exposé sur Internet. Seul Prometheus, dans le cluster, le consomme.
+  # flexwatch n'a d'ailleurs aucun Ingress : c'est un worker sortant.
+  type: ClusterIP
+  selector:
+    app: flexwatch
+  ports:
+    - name: metrics
+      port: 2112
+      targetPort: metrics
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: flexwatch
+  namespace: flexwatch
+spec:
+  podSelector:
+    matchLabels:
+      app: flexwatch
+  policyTypes: [Ingress, Egress]
+
+  ingress:
+    # Entrée : uniquement le scrape Prometheus, uniquement depuis son
+    # namespace, uniquement sur le port metrics.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 2112
+          protocol: TCP
+
+  egress:
+    # Sortie DNS (indispensable pour résoudre les deux API).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+
+    # Sortie HTTPS vers Internet, pour l'API Communauto et Telegram.
+    #
+    # NetworkPolicy ne sait pas filtrer par nom de domaine : on autorise donc
+    # 443 vers l'extérieur, en excluant explicitement les plages privées et
+    # l'IMDS (169.254.169.254). Ça bloque le pivot latéral et le vol de
+    # credentials d'instance depuis ce pod — la contre-mesure au scénario
+    # « SSRF/RCE dans le bot » du threat model (PLAN.md phase 1).
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 169.254.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP

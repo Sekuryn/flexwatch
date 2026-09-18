@@ -1,0 +1,119 @@
+# Règles Prometheus pour flexwatch : alertes + règles d'enregistrement pour la
+# heatmap de disponibilité.
+#
+# Principe : on alerte sur des SYMPTÔMES observables par l'utilisateur (« je ne
+# reçois plus d'alertes »), pas sur des causes internes. Chaque alerte porte
+# une annotation `action` qui dit quoi faire — une alerte sans action est un
+# bruit qu'on finira par ignorer.
+
+groups:
+  # --------------------------------------------------------------- disponibilité
+  - name: flexwatch-availability
+    rules:
+      - alert: FlexwatchDown
+        expr: up{job=~"flexwatch.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "flexwatch ne répond plus au scrape"
+          description: "La cible {{ $labels.instance }} est injoignable depuis 2 minutes."
+          action: "kubectl -n flexwatch get pods ; kubectl -n flexwatch logs -l app=flexwatch --tail=50"
+
+      - alert: FlexwatchPollsStale
+        # La métrique de fraîcheur est le coeur du service : un process vivant
+        # qui ne poll plus est plus dangereux qu'un process mort, parce qu'il
+        # a l'air en bonne santé.
+        expr: time() - flexwatch_last_success_timestamp_seconds > 300
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "aucun poll réussi depuis plus de 5 minutes"
+          description: "Dernier succès il y a {{ $value | humanizeDuration }}."
+          action: "Vérifier flexwatch_poll_errors_total par kind, puis l'accès sortant vers restapifrontoffice.reservauto.net."
+
+      - alert: FlexwatchPollErrorRate
+        expr: |
+          sum(rate(flexwatch_polls_total{result="error"}[10m]))
+            /
+          clamp_min(sum(rate(flexwatch_polls_total[10m])), 1e-9)
+            > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "plus de 50 % des polls échouent"
+          description: "Taux d'échec sur 10 min : {{ $value | humanizePercentage }}."
+          action: "Regarder kind=http (429 ? 5xx ?) vs kind=network avant de toucher au code."
+
+  # ------------------------------------------------------- contrat d'API amont
+  - name: flexwatch-api-contract
+    rules:
+      - alert: FlexwatchSchemaDrift
+        # Une dérive de schéma est silencieuse par nature : le bot « marche »
+        # mais ne détecte plus rien. C'est le scénario de panne le plus vicieux
+        # de ce projet, donc il a son alerte dédiée.
+        expr: increase(flexwatch_poll_errors_total{kind="schema"}[15m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "le schéma de l'API Communauto a changé"
+          description: "Le décodeur ne trouve plus de liste de véhicules exploitable."
+          action: "Lancer `flexwatch -once` en local, comparer avec internal/communauto/decode.go (listes de clés candidates)."
+
+      - alert: FlexwatchUndecodableVehicles
+        expr: increase(flexwatch_vehicles_undecodable_total[30m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "des véhicules sont ignorés faute de champs exploitables"
+          description: "{{ $value }} véhicules indécodables sur 30 min."
+          action: "Dérive partielle du schéma : vérifier les clés de position dans decode.go."
+
+      - alert: FlexwatchFenceAlwaysEmpty
+        # Pas une panne technique : probablement un géofence mal réglé (mauvais
+        # centre, rayon trop petit). Sans cette alerte, on attend des jours une
+        # notification qui ne viendra jamais.
+        expr: max_over_time(flexwatch_vehicles_in_fence[12h]) == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "aucun véhicule dans le géofence depuis 12 h"
+          description: "Le rayon ou le centre est peut-être mal configuré."
+          action: "Vérifier FLEX_CENTER_LAT/LON/RADIUS_KM, puis `flexwatch -once` pour voir in_bbox vs in_fence."
+
+  # ------------------------------------------------------------- notifications
+  - name: flexwatch-notifications
+    rules:
+      - alert: FlexwatchNotificationsFailing
+        expr: increase(flexwatch_notifications_total{outcome=~".*_error"}[15m]) > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "les notifications {{ $labels.outcome }} échouent"
+          description: "Des détections ont lieu mais n'arrivent pas jusqu'à l'utilisateur."
+          action: "Token Telegram révoqué ou expiré ? Vérifier le secret monté, PAS les logs (le token n'y est jamais)."
+
+  # -------------------------------------------- agrégations pour la heatmap
+  - name: flexwatch-heatmap
+    interval: 1m
+    rules:
+      # Disponibilité moyenne dans le rayon, par tranche de 5 min : c'est la
+      # série qu'on empile en heatmap (heure du jour x jour de la semaine)
+      # dans Grafana.
+      - record: flexwatch:vehicles_in_fence:avg5m
+        expr: avg_over_time(flexwatch_vehicles_in_fence[5m])
+
+      - record: flexwatch:new_appearances:rate1h
+        expr: sum(rate(flexwatch_new_appearances_total[1h]))
+
+      # Taux de succès des polls sur 24 h : le SLI du bot.
+      - record: flexwatch:poll_success_ratio:24h
+        expr: |
+          sum(rate(flexwatch_polls_total{result="success"}[24h]))
+            /
+          clamp_min(sum(rate(flexwatch_polls_total[24h])), 1e-9)

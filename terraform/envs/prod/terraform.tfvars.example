@@ -1,0 +1,17 @@
+# Copier en terraform.tfvars (ignoré par git) puis remplir.
+#
+# Aucun secret ici : ce fichier ne contient que des paramètres publics. Le
+# token Telegram est écrit directement dans Secrets Manager (PLAN.md phase 6).
+
+owner = "lecocguen.jeremy@gmail.com"
+
+region            = "ca-central-1"
+availability_zone = "ca-central-1a"
+instance_type     = "t4g.small"
+
+# Version de k3s épinglée.
+k3s_version = "v1.31.4+k3s1"
+
+# Empreinte du script d'installation k3s, relevée soi-même :
+#   curl -sfL https://get.k3s.io | sha256sum
+k3s_installer_sha256 = "REMPLACER_PAR_LES_64_CARACTERES_HEXA"

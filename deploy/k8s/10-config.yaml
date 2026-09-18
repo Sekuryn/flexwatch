@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: flexwatch
+  namespace: flexwatch
+# L'app n'appelle jamais l'API Kubernetes : lui monter un token serait offrir
+# un point de départ gratuit à un attaquant qui obtiendrait un RCE.
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flexwatch-config
+  namespace: flexwatch
+data:
+  # Configuration non sensible uniquement. Les secrets arrivent par
+  # ExternalSecret (cf. 50-externalsecret.yaml).
+  FLEX_CITY_ID: "59"
+  FLEX_CENTER_LAT: "45.5017"
+  FLEX_CENTER_LON: "-73.5673"
+  FLEX_RADIUS_KM: "1.5"
+  FLEX_POLL_INTERVAL: "20s"
+  FLEX_HTTP_TIMEOUT: "10s"
+  FLEX_REALERT_AFTER: "10m"
+  FLEX_METRICS_ADDR: ":2112"
+  FLEX_LOG_LEVEL: "info"
+  FLEX_STORE_ENABLED: "false"
+  FLEX_USER_AGENT: "flexwatch/1.0 (+https://github.com/Fougere/flexwatch; portfolio DevSecOps, read-only)"

@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flexwatch
+  namespace: flexwatch
+  labels:
+    app: flexwatch
+    app.kubernetes.io/name: flexwatch
+spec:
+  # UNE seule réplique, volontairement. Deux instances détecteraient la même
+  # voiture et enverraient deux notifications : l'état de détection est en
+  # mémoire, il n'est pas partagé. Passer à 2+ demanderait un verrou externe
+  # (Redis, table Postgres) — hors scope tant que le bot est mono-utilisateur.
+  replicas: 1
+  strategy:
+    # Recreate et pas RollingUpdate : pendant un rolling, l'ancien et le
+    # nouveau pod polleraient en parallèle -> doublons d'alertes.
+    type: Recreate
+  selector:
+    matchLabels:
+      app: flexwatch
+  template:
+    metadata:
+      labels:
+        app: flexwatch
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "2112"
+        prometheus.io/path: /metrics
+    spec:
+      serviceAccountName: flexwatch
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: flexwatch
+          # TOUJOURS un digest, jamais un tag mutable : c'est ce digest que
+          # Kyverno vérifie comme signé par la CI (cf. policy/kyverno).
+          # Remplacer par le digest affiché à la fin du job `image` de la CI.
+          image: ghcr.io/fougere/flexwatch@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: metrics
+              containerPort: 2112
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: flexwatch-config
+            - secretRef:
+                # Créé par l'ExternalSecret depuis AWS Secrets Manager.
+                name: flexwatch-telegram
+                optional: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            # Requests = ce qui est réservé, limits = le plafond. Sur un
+            # t4g.small (2 vCPU / 2 Gio), ce bot doit rester discret pour
+            # laisser la place à Prometheus, Grafana, Loki et Falco.
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          livenessProbe:
+            # Liveness = le process répond. On ne redémarre PAS le pod parce
+            # que l'API Communauto est en panne.
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            # Readiness = les polls sont frais. Visible dans `kubectl get pods`
+            # sans tuer le pod pour autant.
+            httpGet:
+              path: /readyz
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          volumeMounts:
+            # Le FS racine est en lecture seule ; Go n'a besoin de rien écrire,
+            # mais /tmp reste monté en mémoire par précaution (crash dumps).
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+      terminationGracePeriodSeconds: 15

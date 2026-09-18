@@ -1,0 +1,25 @@
+# build output
+/bin/
+/dist/
+flexwatch
+flexwatch.exe
+
+# local secrets / config — NEVER commit
+.env
+.env.*
+*.pem
+*.key
+
+# tooling
+/coverage.out
+/sbom.json
+/sbom.spdx.json
+/trivy-report.json
+
+# terraform local state (state lives in S3, cf. PLAN.md phase 5)
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log

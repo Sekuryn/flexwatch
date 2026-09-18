@@ -1,0 +1,66 @@
+{
+  "totalNbVehicles": 3,
+  "cachingInfo": {
+    "cachingDurationInSec": 5,
+    "servedFromCache": true,
+    "cachingExpirationUTCDate": "2026-09-17T22:02:39.4305981+00:00",
+    "hashCode": 1882003816
+  },
+  "vehicles": [
+    {
+      "vehicleId": 10428,
+      "vehicleNb": 8129,
+      "cityId": 59,
+      "vehiclePropulsionTypeId": 1,
+      "vehicleTypeId": 4,
+      "vehicleBodyTypeId": 1,
+      "vehicleTransmissionTypeId": 2,
+      "vehicleTireTypeId": 2,
+      "vehiclePromotions": [],
+      "vehicleAccessories": [
+        5,
+        7,
+        8,
+        11,
+        13,
+        16,
+        15,
+        22
+      ],
+      "vehicleLocation": {
+        "latitude": 45.4721155462088,
+        "longitude": -73.587243162777
+      },
+      "satisfiesFilters": true,
+      "energyLevelPercentage": null,
+      "displayZone": false
+    },
+    {
+      "vehicleId": 7959,
+      "vehicleNb": 6106,
+      "cityId": 59,
+      "vehiclePropulsionTypeId": 2,
+      "vehicleTypeId": 3,
+      "vehicleBodyTypeId": 1,
+      "vehicleTransmissionTypeId": 2,
+      "vehicleTireTypeId": 1,
+      "vehiclePromotions": [],
+      "vehicleAccessories": [
+        5,
+        8,
+        13,
+        14,
+        16,
+        15,
+        22
+      ],
+      "vehicleLocation": {
+        "latitude": 45.5174221625058,
+        "longitude": -73.6104148497146
+      },
+      "satisfiesFilters": true,
+      "energyLevelPercentage": 44,
+      "displayZone": false
+    }
+  ]
+}

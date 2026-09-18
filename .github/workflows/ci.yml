@@ -1,0 +1,316 @@
+# CI flexwatch — qualité, sécurité, supply chain.
+#
+# Principe : tout ce qui casse la qualité casse le build (fail fast), et rien
+# n'est publié sans SBOM ni signature. Aucun déploiement n'est fait ici : la
+# CI produit un artefact signé, le déploiement reste manuel (cf. PLAN.md).
+#
+# Durcissement des actions : les tags (@v6) sont lisibles mais MUTABLES. Pour
+# une vraie chaîne de confiance, épingler par SHA :
+#   uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+# Outils qui font ça automatiquement : `pinact`, ou `zizmor` pour auditer les
+# workflows (cf. PLAN.md phase 2).
+name: ci
+
+on:
+  push:
+    branches: [master, main]
+    tags: ["v*"]
+  pull_request:
+  # Un scan hebdomadaire attrape les CVE publiées après le dernier commit :
+  # le code ne change pas, la menace si.
+  schedule:
+    - cron: "17 4 * * 1"
+
+# Principe du moindre privilège : par défaut, lecture seule. Chaque job
+# ré-ouvre uniquement ce dont il a besoin.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.27"
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+jobs:
+  # --------------------------------------------------------------- 1. qualité
+  quality:
+    name: format, lint, tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Profondeur complète : golangci-lint et Sonar veulent l'historique
+          # pour attribuer les lignes (blame) et calculer le "new code".
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - name: gofmt (aucune diff toleree)
+        run: |
+          unformatted=$(gofmt -s -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::fichiers non formates :"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@2026.2.1
+          staticcheck ./...
+
+      - name: tests (race detector + couverture)
+        run: |
+          # La couverture porte sur le code applicatif ; test/e2e/mockapi est
+          # un outil de test et fausserait le chiffre.
+          go test -race -count=1 ./...
+          go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./cmd/... ./internal/...
+
+      - name: resume de couverture
+        run: go tool cover -func=coverage.out | tail -n 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          retention-days: 7
+
+  # --------------------------------------------------------- 2. golangci-lint
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13
+          args: --timeout=5m
+
+  # -------------------------------------------- 3. vulnérabilités du code Go
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # govulncheck croise le code réellement atteignable avec la base de
+      # vulnérabilités Go : beaucoup moins de faux positifs qu'un scan de
+      # go.mod, parce qu'une CVE dans une fonction jamais appelée n'est pas
+      # exploitable.
+      - uses: golang/govulncheck-action@v1
+        with:
+          go-version-input: ${{ env.GO_VERSION }}
+          repo-checkout: false
+
+  # ------------------------------------------------------- 4. secrets en clair
+  secrets-scan:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      # Un token Telegram commité reste dans l'historique git même après
+      # suppression : on veut le savoir au push, pas six mois plus tard.
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  # ------------------------------------------ 5. dépendances & IaC (Trivy fs)
+  trivy-repo:
+    name: trivy (deps, IaC, secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: trivy filesystem
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          # Une CVE sans correctif disponible ne doit pas bloquer une PR :
+          # elle est suivie, pas ignorée (cf. .trivyignore daté).
+          ignore-unfixed: true
+          exit-code: "1"
+
+  # ------------------------------------------------- 6. SonarQube quality gate
+  sonarqube:
+    name: sonarqube
+    runs-on: ubuntu-latest
+    needs: [quality]
+    # Sans instance Sonar configurée, on ne fait pas échouer la CI entière.
+    if: ${{ vars.SONAR_HOST_URL != '' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage
+
+      - name: scan sonarqube
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+
+      # La quality gate est le vrai garde-fou : le scan seul ne bloque rien.
+      - name: attendre la quality gate
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+
+  # ---------------------------------------- 7. image, SBOM, scan et signature
+  image:
+    name: build, sbom, sign
+    runs-on: ubuntu-latest
+    needs: [quality, lint, govulncheck, trivy-repo]
+    permissions:
+      contents: read
+      packages: write # push GHCR
+      id-token: write # cosign keyless (OIDC Sigstore)
+      attestations: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: metadata (tags et labels OCI)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=sha,format=long
+
+      # On construit d'abord SANS pousser : on ne publie pas une image qu'on
+      # n'a pas encore scannée.
+      - name: build arm64 (cible EC2 t4g)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: false
+          load: true
+          tags: flexwatch:ci
+          build-args: |
+            VERSION=${{ github.ref_name }}-${{ github.sha }}
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: trivy sur l'image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: flexwatch:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: sbom (syft, cyclonedx)
+        uses: anchore/sbom-action@v0
+        with:
+          image: flexwatch:ci
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+          artifact-name: sbom.cdx.json
+
+      - name: login ghcr
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      # Le push réutilise le cache : rien n'est reconstruit, donc l'image
+      # poussée est bien celle qui a été scannée.
+      - name: push ghcr
+        id: push
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ github.ref_name }}-${{ github.sha }}
+          cache-from: type=gha
+
+      - uses: sigstore/cosign-installer@v3
+        if: github.event_name != 'pull_request'
+
+      # Signature keyless : pas de clé privée à stocker ni à faire tourner.
+      # L'identité signataire est le workflow lui-même (OIDC GitHub), ce qui
+      # se vérifie côté cluster par Kyverno (cf. PLAN.md phase 4).
+      - name: signer l'image (cosign keyless)
+        if: github.event_name != 'pull_request'
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: cosign sign --yes "${IMAGE_NAME}@${DIGEST}"
+
+      # Le SBOM est signé et attaché à l'image : il voyage avec elle, il n'est
+      # pas un fichier perdu dans un artefact de CI.
+      - name: attacher et signer le SBOM
+        if: github.event_name != 'pull_request'
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          cosign attest --yes \
+            --predicate sbom.cdx.json \
+            --type cyclonedx \
+            "${IMAGE_NAME}@${DIGEST}"
+
+      - name: rappel de verification
+        if: github.event_name != 'pull_request'
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          echo "Verifier depuis un poste :"
+          echo "cosign verify ${IMAGE_NAME}@${DIGEST} \\"
+          echo "  --certificate-identity-regexp 'https://github.com/${{ github.repository }}/.github/workflows/ci.yml@.*' \\"
+          echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com"
+
+  # ---------------------------------------- 8. validation des policies IaC/OPA
+  policy:
+    name: conftest (terraform + kubernetes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: installer conftest
+        run: |
+          CONFTEST_VERSION=0.56.0
+          curl -fsSL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" \
+            | tar -xz conftest
+          sudo install -m 0755 conftest /usr/local/bin/conftest
+
+      # Les policies sont testées elles-mêmes : une policy qui ne refuse rien
+      # donne une fausse assurance.
+      - name: tests unitaires des policies
+        run: conftest verify --policy policy/
+
+      - name: policies sur les manifests kubernetes
+        run: conftest test --policy policy/kubernetes deploy/k8s/ --all-namespaces
+        continue-on-error: false

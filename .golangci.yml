@@ -1,0 +1,88 @@
+# Configuration golangci-lint v2 (format `version: "2"`).
+# En v1 les clés étaient `linters-settings`, `issues.exclude-rules`, etc. ;
+# elles ont été déplacées sous `linters.settings` / `linters.exclusions`, et
+# les formateurs (gofmt, goimports...) ont leur propre section.
+version: "2"
+
+run:
+  # Les tests sont du code comme le reste : ils sont lintés aussi.
+  tests: true
+  # Pas de `build-tags: [postgres]` ici, volontairement.
+  #
+  # Le build par défaut n'a aucune dépendance : pgx n'est donc pas dans go.mod,
+  # et activer le tag ferait échouer le typecheck sur store_postgres.go
+  # (« no required module provides package »). Le prix assumé : ce fichier
+  # n'est pas linté par défaut. Il est vérifié quand on l'utilise vraiment,
+  # via `make lint-postgres` (qui ajoute d'abord la dépendance).
+
+linters:
+  # standard = errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+  enable:
+    # Sécurité et correction
+    - gosec        # patterns dangereux (timeouts HTTP absents, exec, crypto faible)
+    - bodyclose    # une réponse HTTP non fermée = fuite de connexions
+    - noctx        # toute requête sortante doit porter un context
+    - errorlint    # comparaisons d'erreurs sans errors.Is/As
+    - nilerr       # `return nil` alors qu'une erreur est non nulle
+    - rowserrcheck # erreurs de curseur SQL (utile avec le tag postgres)
+    # Lisibilité et idiomatismes
+    - revive
+    - unconvert
+    - unparam
+    - wastedassign
+    - copyloopvar
+    # `misspell` n'est PAS activé : les commentaires de ce projet sont en
+    # français et le linter n'a pas de locale FR. Il produisait 48 findings du
+    # genre « vehicule → vehicle », « persistance → persistence ». Un linter
+    # qui crie faux est un linter qu'on finit par ignorer entièrement — donc
+    # on le retire plutôt que de le noyer sous des exclusions.
+
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        # fieldalignment optimise la mémoire au détriment de la lisibilité :
+        # hors contrainte forte, ce n'est pas le bon compromis ici.
+        - fieldalignment
+    gosec:
+      # G104 (erreurs ignorées) est déjà couvert par errcheck, avec un
+      # meilleur ciblage : on évite le doublon.
+      excludes:
+        - G104
+    revive:
+      rules:
+        - name: exported
+        - name: error-strings
+        - name: context-as-argument
+        - name: indent-error-flow
+        - name: unreachable-code
+    misspell:
+      locale: US
+
+  exclusions:
+    rules:
+      # Dans les tests, les erreurs ignorées et les "faiblesses" gosec sont
+      # souvent volontaires (serveurs httptest, écritures dans un buffer).
+      - path: '_test\.go'
+        linters:
+          - gosec
+          - errcheck
+          - unparam
+      # Le jitter utilise math/rand volontairement : ce n'est pas de la crypto.
+      - path: internal/watch/runner\.go
+        text: "G404"
+        linters:
+          - gosec
+
+formatters:
+  enable:
+    - gofmt
+  settings:
+    gofmt:
+      simplify: true
+
+issues:
+  # Un projet propre reste propre : aucune régression tolérée.
+  max-issues-per-linter: 0
+  max-same-issues: 0

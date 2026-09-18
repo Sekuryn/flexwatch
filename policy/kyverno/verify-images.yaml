@@ -1,0 +1,112 @@
+# Kyverno — admission control : ce qui entre dans le cluster.
+#
+# Conftest (policy/terraform, policy/kubernetes) valide AVANT, en CI. Kyverno
+# valide AU MOMENT DE L'ADMISSION, dans le cluster. Les deux sont nécessaires :
+# la CI protège du manifest mal écrit, Kyverno protège du `kubectl apply` fait
+# à la main à 23 h sur une machine fatiguée.
+#
+# Compatibilité : syntaxe `kyverno.io/v1 ClusterPolicy` (stable, largement
+# documentée). Kyverno >= 1.13 préfère `failureAction` par règle plutôt que
+# `spec.validationFailureAction`, et >= 1.15 propose le nouveau type
+# `policies.kyverno.io/v1 ImageValidatingPolicy` (CEL). Vérifier la version
+# installée avec `kubectl get deploy -n kyverno kyverno-admission-controller
+# -o jsonpath='{.spec.template.spec.containers[0].image}'` avant d'appliquer.
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-flexwatch-signature
+  annotations:
+    policies.kyverno.io/title: Verification de signature cosign keyless
+    policies.kyverno.io/severity: critical
+    policies.kyverno.io/description: >-
+      N'admet une image flexwatch que si elle est signée par le workflow de CI
+      de ce dépôt. Une image poussée depuis un poste, ou par un tiers ayant
+      volé des credentials de registre, est refusée : elle n'a pas de
+      signature émise par l'identité OIDC du workflow.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  webhookTimeoutSeconds: 30
+  rules:
+    - name: verify-signature
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [flexwatch]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/fougere/flexwatch*"
+            - "*.dkr.ecr.*.amazonaws.com/flexwatch*"
+          # Kyverno remplace le tag par le digest résolu à l'admission : le pod
+          # tourne exactement sur l'image vérifiée, pas sur ce que le tag
+          # désignera plus tard.
+          mutateDigest: true
+          verifyDigest: true
+          required: true
+          attestors:
+            - count: 1
+              entries:
+                - keyless:
+                    # L'identité du signataire est le workflow lui-même.
+                    # Adapter le chemin si le workflow est renommé.
+                    subjectRegExp: "^https://github\\.com/Fougere/flexwatch/\\.github/workflows/ci\\.yml@.*"
+                    issuer: https://token.actions.githubusercontent.com
+                    rekor:
+                      url: https://rekor.sigstore.dev
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-image-digest
+  annotations:
+    policies.kyverno.io/title: Images referencees par digest
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Un tag est mutable : `:v1.0.0` peut designer une autre image demain.
+      Exiger un digest rend le deploiement reproductible et rend la
+      verification de signature significative.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-digest
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [flexwatch]
+      validate:
+        message: "Les images doivent etre referencees par digest (@sha256:...), pas par tag."
+        pattern:
+          spec:
+            containers:
+              - image: "*@sha256:*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-registries
+  annotations:
+    policies.kyverno.io/title: Registres autorises
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Limite les registres d'ou peuvent venir les images. Contre-mesure au
+      typosquatting et a un manifest pointant par erreur vers Docker Hub.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: allowed-registries
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [flexwatch, monitoring]
+      validate:
+        message: "Registre non autorise. Attendus : ghcr.io/fougere/*, ECR du compte, registries officiels du monitoring."
+        pattern:
+          spec:
+            containers:
+              - image: "ghcr.io/fougere/* | *.dkr.ecr.*.amazonaws.com/* | docker.io/grafana/* | quay.io/prometheus/* | docker.io/falcosecurity/*"

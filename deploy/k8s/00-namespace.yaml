@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: flexwatch
+  labels:
+    app.kubernetes.io/name: flexwatch
+    # Pod Security Admission en mode `restricted` : le namespace REFUSE tout
+    # pod privilégié, même si un manifest mal relu le demande. C'est la
+    # ceinture ; Kyverno est la bretelle.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
