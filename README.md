@@ -1,10 +1,61 @@
 # flexwatch
 
+[![ci](https://github.com/Sekuryn/flexwatch/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Sekuryn/flexwatch/actions/workflows/ci.yml)
+[![codeql](https://github.com/Sekuryn/flexwatch/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Sekuryn/flexwatch/actions/workflows/codeql.yml)
+[![go](https://img.shields.io/github/go-mod/go-version/Sekuryn/flexwatch?label=go)](go.mod)
+[![dépendances tierces](https://img.shields.io/badge/d%C3%A9pendances%20tierces-0-brightgreen)](go.mod)
+
 Détecteur de véhicules **Communauto Flex** dans un rayon donné, en Go.
 Il surveille, il prévient. **Il ne réserve rien.**
 
 Projet portfolio DevSecOps : l'application est le support, le vrai livrable est
 le runbook d'hébergement et de pipeline — **[PLAN.md](PLAN.md)**.
+
+---
+
+## Chaîne de livraison
+
+Ce que la CI exécute à chaque push et à chaque pull request :
+
+| Étape | Outil | Bloque le merge |
+|---|---|---|
+| Format, `vet`, tests `-race`, couverture | Go 1.27, staticcheck | oui |
+| Lint | golangci-lint 2.13 | oui |
+| Vulnérabilités du code Go | govulncheck | oui |
+| SAST (flux de données) | CodeQL | oui |
+| Secrets dans l'historique | gitleaks | oui |
+| Dépendances, IaC, secrets | Trivy 0.74 | oui |
+| Policies IaC et Kubernetes | conftest / OPA | oui |
+| Image arm64, scan, SBOM, signature | Docker, Syft, cosign | oui |
+| Quality gate | SonarQube | pas encore branché |
+
+Puis, **sans déployer** : image distroless nonroot poussée sur GHCR, **signée
+en keyless** (Sigstore) avec le SBOM CycloneDX attesté. Le déploiement reste
+manuel — c'est l'objet de [PLAN.md](PLAN.md).
+
+### Vérifier une image publiée
+
+La signature ne vaut que si quelqu'un la vérifie. Depuis n'importe quelle
+machine, sans compte ni clé :
+
+```bash
+./scripts/verify-image.sh sha256:<digest affiche par la CI>
+```
+
+Le script contrôle la signature, l'attestation SBOM, **et** qu'une identité
+étrangère est bien refusée. Le certificat Fulcio relie l'image à un commit et à
+un workflow précis :
+
+```
+Subject   https://github.com/Sekuryn/flexwatch/.github/workflows/ci.yml@refs/heads/main
+Issuer    https://token.actions.githubusercontent.com
+```
+
+### Protection de `main`
+
+`main` n'accepte que des pull requests, en `squash` ou `rebase`, avec les
+**8 checks verts**, les commits **signés**, et un résultat CodeQL. Ni push
+direct, ni force-push, ni suppression.
 
 ---
 
