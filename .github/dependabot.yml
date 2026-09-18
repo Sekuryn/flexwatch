@@ -1,0 +1,56 @@
+# Dependabot — configuration EN CODE plutôt qu'en interrupteur dans l'UI.
+#
+# Dependabot tournait déjà (la PR #1 en atteste) via le réglage d'interface,
+# sans fichier de configuration. Le mettre ici rend son comportement
+# reviewable, versionné et identique pour quiconque forke le dépôt.
+#
+# Rappel de cadrage : `go.mod` n'a AUCUNE dépendance tierce. L'écosystème
+# gomod est déclaré quand même, pour le jour où pgx entre (build tag postgres)
+# et pour suivre la directive `go`.
+version: 2
+
+updates:
+  # ------------------------------------------------------- GitHub Actions
+  # C'est l'écosystème qui compte ici : une action est du code tiers qui
+  # s'exécute avec les permissions du workflow. Une action abandonnée ou
+  # compromise est un vecteur direct vers le registre de production.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Montreal
+    # Groupées : une PR par semaine à relire, plutôt que huit PR isolées
+    # qu'on finit par merger sans lire.
+    groups:
+      github-actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: build(deps)
+    labels: [dependencies, github-actions]
+
+  # ---------------------------------------------------------------- Go
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: build(deps)
+    labels: [dependencies, go]
+
+  # ------------------------------------------------------------ Docker
+  # Limite connue : le Dockerfile référence ses images via `ARG GO_IMAGE=...`
+  # pour permettre l'épinglage par digest. Dependabot ne suit pas toujours les
+  # FROM indirects — si aucune PR n'arrive ici, c'est la raison, et la mise à
+  # jour des images de base reste manuelle (PLAN.md phase 3, étape 3).
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: build(deps)
+    labels: [dependencies, docker]
