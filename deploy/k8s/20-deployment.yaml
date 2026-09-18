@@ -71,6 +71,9 @@ spec:
             limits:
               cpu: 200m
               memory: 128Mi
+              # Sans plafond, un conteneur qui ecrit peut saturer le disque
+              # du noeud et faire evincer Prometheus avec lui.
+              ephemeral-storage: 64Mi
           livenessProbe:
             # Liveness = le process répond. On ne redémarre PAS le pod parce
             # que l'API Communauto est en panne.
