@@ -186,6 +186,11 @@ Et sur les fichiers de référence du plan :
 | `conftest test` sur `deploy/k8s/` | **120 contrôles, 0 échec** |
 | `promtool check rules` | **10 règles** valides |
 | `promtool check config` | syntaxe valide |
+| `trivy fs` (Trivy 0.74.0, scan identique à la CI) | 0 finding — 1 corrigé, 3 en exception datée |
+
+Les exceptions Trivy sont dans **`.trivyignore.yaml`**, chacune avec son
+`statement` et son `expired_at` : rien n'est ignoré sans justification ni date
+de péremption (détail dans PLAN.md phase 2).
 
 Non vérifiés par exécution, faute d'outils sur ce poste : `Dockerfile`
 (Docker absent), le workflow CI (demande un push) et les `ClusterPolicy`

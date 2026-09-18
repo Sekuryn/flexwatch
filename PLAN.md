@@ -1,4 +1,4 @@
-claude --resume 4ad98255-66d5-408b-973c-1bc7639c6249# PLAN.md — Runbook DevSecOps flexwatch
+# PLAN.md — Runbook DevSecOps flexwatch
 
 **Ce document est fait pour être exécuté à la main, par toi, dans l'ordre.**
 Aucune automatisation de ce dépôt ne déploie quoi que ce soit : la CI s'arrête
@@ -242,7 +242,42 @@ Fichier de référence : **`.github/workflows/ci.yml`** (déjà écrit).
 2. **Corriger job par job**, dans cet ordre : `quality` → `lint` →
    `govulncheck` → `trivy-repo` → `secrets-scan`.
 
-3. **Monter SonarQube.** Le plus simple pour un portfolio est
+   **Reproduire un échec en local avant de re-pousser.** Deux allers-retours de
+   CI coûtent plus cher qu'une installation d'outil :
+   ```bash
+   trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL \
+     --ignore-unfixed --ignorefile .trivyignore.yaml --exit-code 1 \
+     --skip-dirs terraform/envs/prod/.terraform .
+   ```
+
+3. **Traiter les findings Trivy — et la discipline qui va avec.** Le premier
+   scan a remonté 4 misconfigurations sur l'IaC. La règle appliquée : *on
+   corrige ce qui peut l'être, on date ce qui ne peut pas l'être, on ne
+   désactive jamais le scanner ni ne baisse le seuil de sévérité.*
+
+   | Finding | Traitement |
+   |---|---|
+   | `AWS-0164` (HIGH) — le subnet attribue une IP publique | **Corrigé.** `map_public_ip_on_launch = false` ; l'instance demande son IP explicitement. Gain réel : une instance future ne reçoit plus d'IP publique par accident. |
+   | `AWS-0104` (CRITICAL ×3) — sortie vers `0.0.0.0/0` | **Risque accepté, daté.** Les deux API cibles sont derrière des CDN : un security group ne filtre que par IP, pas par domaine. Compensé par la restriction aux ports 443/53/123, la NetworkPolicy qui exclut l'IMDS, et les Flow Logs. |
+
+   Les exceptions vivent dans **`.trivyignore.yaml`**, avec pour chacune un
+   `statement` (pourquoi) et un `expired_at` (jusqu'à quand). À l'échéance,
+   Trivy la rejette et le sujet revient à l'ordre du jour — c'est ce qui
+   distingue un risque *accepté* d'un risque *oublié*.
+
+   Deux détails qui font échouer silencieusement une exception :
+   - le format YAML n'est **pas** détecté automatiquement (contrairement au
+     `.trivyignore` historique) : il faut `--ignorefile` / l'entrée
+     `trivyignores` de l'action ;
+   - Trivy affiche `AWS-0104` mais l'identifiant canonique est `AVD-AWS-0104` :
+     lister les deux formes évite une exception qui ne s'applique pas.
+
+4. **Épingler la version du binaire Trivy** (`version: v0.74.0`). Celle par
+   défaut de l'action prend du retard, et un scanner en retard rate des CVE
+   récentes. C'est la seule version qu'on met à jour *volontairement*, pas au
+   petit bonheur de l'action.
+
+5. **Monter SonarQube.** Le plus simple pour un portfolio est
    [SonarQube Cloud](https://sonarcloud.io) (gratuit sur dépôt public) ou une
    instance locale le temps d'une démonstration :
    ```bash
@@ -256,12 +291,12 @@ Fichier de référence : **`.github/workflows/ci.yml`** (déjà écrit).
    Le job `sonarqube` est conditionné à `vars.SONAR_HOST_URL != ''` : sans
    Sonar configuré, la CI reste verte plutôt que rouge en permanence.
 
-4. **Régler la quality gate** sur le *new code* : 0 bug, 0 vulnérabilité, 0
+6. **Régler la quality gate** sur le *new code* : 0 bug, 0 vulnérabilité, 0
    security hotspot non revu, couverture ≥ 70 % sur le code nouveau. Ne pas
    viser 90 % global : une couverture gonflée par des tests sans assertion est
    pire qu'une couverture honnête de 70 %.
 
-5. **Épingler les actions par SHA** et auditer les workflows :
+7. **Épingler les actions par SHA** et auditer les workflows :
    ```bash
    go install github.com/suzuki-shunsuke/pinact/cmd/pinact@latest
    pinact run                      # remplace @v5 par @<sha> # v5
@@ -270,7 +305,7 @@ Fichier de référence : **`.github/workflows/ci.yml`** (déjà écrit).
    `zizmor` détecte notamment les `pull_request_target` dangereux et les
    injections de template — deux façons classiques de voler les secrets d'une CI.
 
-6. **Vérifier le principe du moindre privilège du workflow** : `permissions:
+8. **Vérifier le principe du moindre privilège du workflow** : `permissions:
    contents: read` au niveau racine, et uniquement le job `image` qui ouvre
    `packages: write` et `id-token: write`.
 

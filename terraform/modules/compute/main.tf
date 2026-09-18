@@ -109,6 +109,11 @@ resource "aws_instance" "app" {
   vpc_security_group_ids = [var.security_group_id]
   iam_instance_profile   = aws_iam_instance_profile.instance.name
 
+  // Demande explicite, parce que le subnet ne l'attribue plus par defaut.
+  // Necessaire pour joindre l'API Communauto sans NAT Gateway (~35 USD/mois) ;
+  // la contrepartie est un security group SANS aucune regle d'entree.
+  associate_public_ip_address = var.associate_public_ip
+
   // Pas de key_name : aucune clé SSH à protéger, à distribuer ou à révoquer.
   key_name = null
 

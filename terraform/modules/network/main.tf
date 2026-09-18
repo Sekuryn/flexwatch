@@ -33,10 +33,15 @@ resource "aws_internet_gateway" "this" {
 }
 
 resource "aws_subnet" "public" {
-  vpc_id                  = aws_vpc.this.id
-  cidr_block              = var.public_subnet_cidr
-  availability_zone       = var.availability_zone
-  map_public_ip_on_launch = true
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = var.public_subnet_cidr
+  availability_zone = var.availability_zone
+
+  // FALSE volontairement (Trivy AWS-0164) : sinon toute instance lancee un
+  // jour dans ce subnet recevrait une IP publique sans que personne ne l'ait
+  // demande. L'instance flexwatch demande la sienne explicitement, via
+  // associate_public_ip_address dans le module compute.
+  map_public_ip_on_launch = false
 
   tags = merge(var.tags, { Name = "${var.name}-public" })
 }

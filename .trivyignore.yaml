@@ -1,0 +1,54 @@
+# Exceptions Trivy — chacune DATÉE et JUSTIFIÉE.
+#
+# Règle de ce projet : on ne désactive jamais un scanner, on ne baisse jamais un
+# seuil de sévérité. Une exception est nommée, portée à un fichier précis, et
+# elle EXPIRE. À l'échéance, Trivy la rejette d'office et le sujet revient sur
+# la table — c'est la différence entre un risque accepté et un risque oublié.
+#
+# Utilisé via `--ignorefile .trivyignore.yaml` (le format YAML n'est pas
+# détecté automatiquement, contrairement au `.trivyignore` historique).
+#
+# Les deux formes d'identifiant sont listées : Trivy affiche « AWS-0104 » dans
+# le rapport, mais l'identifiant canonique AVD est « AVD-AWS-0104 ». Lister les
+# deux évite qu'une exception ne s'applique pas silencieusement.
+
+misconfigurations:
+  # ----------------------------------------------------------------- AWS-0104
+  # « Security group rule allows unrestricted egress to any IP address. »
+  #
+  # Risque accepté, sans alternative technique. L'application doit joindre deux
+  # API publiques (restapifrontoffice.reservauto.net et api.telegram.org) qui
+  # sont derrière des CDN : leurs adresses IP changent et ne sont pas publiées.
+  # Un security group ne filtre que par IP, pas par nom de domaine.
+  #
+  # Ce qui est fait à la place :
+  #   - la sortie est restreinte aux PORTS 443, 53 et 123 uniquement, au lieu
+  #     du « tout autoriser » par défaut d'AWS ;
+  #   - la NetworkPolicy du pod exclut explicitement les plages privées et
+  #     169.254.0.0/16 (IMDS), ce qui bloque le pivot latéral et le vol de
+  #     credentials d'instance — le vrai scénario de menace derrière ce finding ;
+  #   - les VPC Flow Logs enregistrent ce qui sort réellement.
+  #
+  # Pour vraiment fermer ce point il faudrait un proxy sortant filtrant par
+  # domaine (Squid, ou AWS Network Firewall). Hors budget pour ce projet :
+  # Network Firewall coûte plus cher que tout le reste de l'infrastructure.
+  # À réévaluer si le projet devient autre chose qu'un portfolio.
+  - id: AWS-0104
+    paths:
+      - "terraform/modules/network/main.tf"
+    statement: >-
+      Sortie 443/53/123 vers 0.0.0.0/0 requise pour joindre les API publiques
+      Communauto et Telegram (CDN, IP non publiees). Compense par restriction
+      par port, NetworkPolicy excluant IMDS et plages privees, et Flow Logs.
+      Un filtrage par domaine exigerait un proxy sortant, hors budget.
+    expired_at: 2027-03-31
+  - id: AVD-AWS-0104
+    paths:
+      - "terraform/modules/network/main.tf"
+    statement: >-
+      Identique a AWS-0104 (identifiant canonique AVD).
+    expired_at: 2027-03-31
+# AWS-0164 (« Subnet associates public IP address ») n'est PAS ignoré : il a été
+# corrigé. Le subnet est passé à map_public_ip_on_launch = false et l'instance
+# demande son IP publique explicitement. Ce qui peut être réparé l'est ; seul
+# ce qui n'a pas d'alternative figure au-dessus.

@@ -62,6 +62,12 @@ variable "user_data" {
   }
 }
 
+variable "associate_public_ip" {
+  description = "Attribue une IP publique a l'instance (requis sans NAT Gateway)."
+  type        = bool
+  default     = true
+}
+
 variable "allocate_eip" {
   description = "Attache une IP elastique (adresse stable entre les reboots)."
   type        = bool

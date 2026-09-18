@@ -135,13 +135,19 @@ jobs:
       - name: trivy filesystem
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          # Version du binaire epinglee : celle par defaut de l'action prend du
+          # retard, et un scanner en retard rate des CVE recentes.
+          version: v0.74.0
           scan-type: fs
           scan-ref: .
           scanners: vuln,secret,misconfig
           severity: HIGH,CRITICAL
           # Une CVE sans correctif disponible ne doit pas bloquer une PR :
-          # elle est suivie, pas ignorée (cf. .trivyignore daté).
+          # elle est suivie, pas ignoree.
           ignore-unfixed: true
+          # Exceptions nommees, justifiees et DATEES. Le format YAML n'est pas
+          # detecte automatiquement, il faut le designer.
+          trivyignores: .trivyignore.yaml
           exit-code: "1"
 
   # ------------------------------------------------- 6. SonarQube quality gate
@@ -227,9 +233,11 @@ jobs:
       - name: trivy sur l'image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          version: v0.74.0
           image-ref: flexwatch:ci
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
           exit-code: "1"
 
       - name: sbom (syft, cyclonedx)
