@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Fougere/flexwatch/internal/geo"
+	"github.com/Sekuryn/flexwatch/internal/geo"
 )
 
 // maxBodyBytes borne la lecture de la réponse : un serveur amont compromis ou

@@ -32,7 +32,6 @@ concurrency:
 
 env:
   GO_VERSION: "1.27"
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 jobs:
   # --------------------------------------------------------------- 1. qualité
@@ -134,7 +133,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: trivy filesystem
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -191,11 +190,18 @@ jobs:
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
+      # github.repository conserve la casse du compte (p. ex. « Sekuryn/... »),
+      # or un nom d'image OCI doit etre entierement en minuscules : sans cette
+      # normalisation, le push GHCR et cosign echouent avec un nom invalide.
+      - name: nom d'image en minuscules
+        id: img
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
       - name: metadata (tags et labels OCI)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: ${{ steps.img.outputs.name }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -219,7 +225,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: trivy sur l'image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: flexwatch:ci
           severity: HIGH,CRITICAL
@@ -267,28 +273,31 @@ jobs:
       - name: signer l'image (cosign keyless)
         if: github.event_name != 'pull_request'
         env:
+          IMAGE: ${{ steps.img.outputs.name }}
           DIGEST: ${{ steps.push.outputs.digest }}
-        run: cosign sign --yes "${IMAGE_NAME}@${DIGEST}"
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
 
       # Le SBOM est signé et attaché à l'image : il voyage avec elle, il n'est
       # pas un fichier perdu dans un artefact de CI.
       - name: attacher et signer le SBOM
         if: github.event_name != 'pull_request'
         env:
+          IMAGE: ${{ steps.img.outputs.name }}
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
           cosign attest --yes \
             --predicate sbom.cdx.json \
             --type cyclonedx \
-            "${IMAGE_NAME}@${DIGEST}"
+            "${IMAGE}@${DIGEST}"
 
       - name: rappel de verification
         if: github.event_name != 'pull_request'
         env:
+          IMAGE: ${{ steps.img.outputs.name }}
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
           echo "Verifier depuis un poste :"
-          echo "cosign verify ${IMAGE_NAME}@${DIGEST} \\"
+          echo "cosign verify ${IMAGE}@${DIGEST} \\"
           echo "  --certificate-identity-regexp 'https://github.com/${{ github.repository }}/.github/workflows/ci.yml@.*' \\"
           echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com"
 

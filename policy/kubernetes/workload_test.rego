@@ -15,7 +15,7 @@ hardened_deployment := {
 		},
 		"containers": [{
 			"name": "flexwatch",
-			"image": "ghcr.io/fougere/flexwatch@sha256:abc",
+			"image": "ghcr.io/sekuryn/flexwatch@sha256:abc",
 			"securityContext": {
 				"allowPrivilegeEscalation": false,
 				"readOnlyRootFilesystem": true,
@@ -49,7 +49,7 @@ test_image_par_tag_refuse if {
 	dep := json.patch(hardened_deployment, [{
 		"op": "replace",
 		"path": "/spec/template/spec/containers/0/image",
-		"value": "ghcr.io/fougere/flexwatch:v1.0.0",
+		"value": "ghcr.io/sekuryn/flexwatch:v1.0.0",
 	}])
 
 	result := workload.deny with input as dep
@@ -60,7 +60,7 @@ test_latest_refuse if {
 	dep := json.patch(hardened_deployment, [{
 		"op": "replace",
 		"path": "/spec/template/spec/containers/0/image",
-		"value": "ghcr.io/fougere/flexwatch:latest",
+		"value": "ghcr.io/sekuryn/flexwatch:latest",
 	}])
 
 	result := workload.deny with input as dep

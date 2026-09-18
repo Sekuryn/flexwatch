@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Fougere/flexwatch/internal/geo"
+	"github.com/Sekuryn/flexwatch/internal/geo"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )

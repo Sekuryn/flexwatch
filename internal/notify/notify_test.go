@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Fougere/flexwatch/internal/communauto"
-	"github.com/Fougere/flexwatch/internal/geo"
+	"github.com/Sekuryn/flexwatch/internal/communauto"
+	"github.com/Sekuryn/flexwatch/internal/geo"
 )
 
 var sample = Notification{

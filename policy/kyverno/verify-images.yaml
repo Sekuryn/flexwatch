@@ -37,7 +37,7 @@ spec:
               namespaces: [flexwatch]
       verifyImages:
         - imageReferences:
-            - "ghcr.io/fougere/flexwatch*"
+            - "ghcr.io/sekuryn/flexwatch*"
             - "*.dkr.ecr.*.amazonaws.com/flexwatch*"
           # Kyverno remplace le tag par le digest résolu à l'admission : le pod
           # tourne exactement sur l'image vérifiée, pas sur ce que le tag
@@ -51,7 +51,7 @@ spec:
                 - keyless:
                     # L'identité du signataire est le workflow lui-même.
                     # Adapter le chemin si le workflow est renommé.
-                    subjectRegExp: "^https://github\\.com/Fougere/flexwatch/\\.github/workflows/ci\\.yml@.*"
+                    subjectRegExp: "^https://github\\.com/Sekuryn/flexwatch/\\.github/workflows/ci\\.yml@.*"
                     issuer: https://token.actions.githubusercontent.com
                     rekor:
                       url: https://rekor.sigstore.dev
@@ -105,8 +105,8 @@ spec:
               kinds: [Pod]
               namespaces: [flexwatch, monitoring]
       validate:
-        message: "Registre non autorise. Attendus : ghcr.io/fougere/*, ECR du compte, registries officiels du monitoring."
+        message: "Registre non autorise. Attendus : ghcr.io/sekuryn/*, ECR du compte, registries officiels du monitoring."
         pattern:
           spec:
             containers:
-              - image: "ghcr.io/fougere/* | *.dkr.ecr.*.amazonaws.com/* | docker.io/grafana/* | quay.io/prometheus/* | docker.io/falcosecurity/*"
+              - image: "ghcr.io/sekuryn/* | *.dkr.ecr.*.amazonaws.com/* | docker.io/grafana/* | quay.io/prometheus/* | docker.io/falcosecurity/*"

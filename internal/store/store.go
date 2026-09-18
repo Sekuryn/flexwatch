@@ -13,8 +13,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Fougere/flexwatch/internal/communauto"
-	"github.com/Fougere/flexwatch/internal/geo"
+	"github.com/Sekuryn/flexwatch/internal/communauto"
+	"github.com/Sekuryn/flexwatch/internal/geo"
 )
 
 // ErrNotCompiled est renvoyée quand la persistance est demandée alors que le

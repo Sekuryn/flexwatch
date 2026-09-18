@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Fougere/flexwatch/internal/communauto"
-	"github.com/Fougere/flexwatch/internal/geo"
-	"github.com/Fougere/flexwatch/internal/metrics"
-	"github.com/Fougere/flexwatch/internal/notify"
+	"github.com/Sekuryn/flexwatch/internal/communauto"
+	"github.com/Sekuryn/flexwatch/internal/geo"
+	"github.com/Sekuryn/flexwatch/internal/metrics"
+	"github.com/Sekuryn/flexwatch/internal/notify"
 )
 
 type captureNotifier struct {

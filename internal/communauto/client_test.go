@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Fougere/flexwatch/internal/geo"
+	"github.com/Sekuryn/flexwatch/internal/geo"
 )
 
 // testdata/freefloating_montreal.json est une VRAIE réponse de l'API, capturée

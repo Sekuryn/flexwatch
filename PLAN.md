@@ -102,7 +102,7 @@ CI. Rien d'autre.
    dépôt git contenant d'autres projets. Ne pas imbriquer.
    ```powershell
    cd C:\Users\lecoc\Documents\Github\CommunAutoBook
-   git init -b master
+   git init -b main
    git add .
    git commit -m "feat: detecteur Communauto Flex (lecture seule) + runbook DevSecOps"
    gh repo create flexwatch --private --source=. --push
@@ -111,7 +111,7 @@ CI. Rien d'autre.
 5. **Protéger la branche** (l'intérêt d'une CI qui bloque est nul si on peut
    pousser à côté) :
    ```powershell
-   gh api -X PUT repos/:owner/flexwatch/branches/master/protection `
+   gh api -X PUT repos/:owner/flexwatch/branches/main/protection `
      --input .github/branch-protection.json
    ```
    À défaut : *Settings → Branches → Add rule* → exiger les checks `quality`,
@@ -129,7 +129,7 @@ branche est ce qui transforme la CI d'un indicateur en un contrôle.
 - `make check` (ou `.\scripts\make.ps1 check`) passe en vert localement ;
 - `make e2e` passe (19 assertions) ;
 - `go run ./cmd/flexwatch -once` liste des véhicules réels ;
-- le dépôt est sur GitHub, `master` protégée, push direct refusé.
+- le dépôt est sur GitHub, `main` protégée, push direct refusé.
 
 ---
 
@@ -223,7 +223,7 @@ pourquoi tu as mis ça ? ».
 ## Phase 2 — CI : qualité et sécurité
 
 **Objectif.** Qu'aucun code non formaté, non linté, vulnérable ou porteur d'un
-secret n'atteigne `master`.
+secret n'atteigne `main`.
 
 **Outil.** GitHub Actions, golangci-lint v2, staticcheck, govulncheck,
 gitleaks, Trivy, SonarQube, zizmor.
@@ -338,21 +338,21 @@ Fichier de référence : **`Dockerfile`** (déjà écrit).
 6. **Signer et attester** (la CI le fait ; le faire une fois à la main pour
    comprendre ce qui se passe) :
    ```bash
-   cosign sign --yes ghcr.io/fougere/flexwatch@sha256:<digest>
+   cosign sign --yes ghcr.io/sekuryn/flexwatch@sha256:<digest>
    cosign attest --yes --predicate sbom.json --type cyclonedx \
-     ghcr.io/fougere/flexwatch@sha256:<digest>
+     ghcr.io/sekuryn/flexwatch@sha256:<digest>
    ```
 
 7. **Vérifier depuis un poste tiers** — c'est l'étape que tout le monde oublie,
    et la seule qui prouve que la signature sert à quelque chose :
    ```bash
-   cosign verify ghcr.io/fougere/flexwatch@sha256:<digest> \
-     --certificate-identity-regexp 'https://github.com/Fougere/flexwatch/.github/workflows/ci.yml@.*' \
+   cosign verify ghcr.io/sekuryn/flexwatch@sha256:<digest> \
+     --certificate-identity-regexp 'https://github.com/Sekuryn/flexwatch/.github/workflows/ci.yml@.*' \
      --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
-   cosign verify-attestation ghcr.io/fougere/flexwatch@sha256:<digest> \
+   cosign verify-attestation ghcr.io/sekuryn/flexwatch@sha256:<digest> \
      --type cyclonedx \
-     --certificate-identity-regexp 'https://github.com/Fougere/flexwatch/.*' \
+     --certificate-identity-regexp 'https://github.com/Sekuryn/flexwatch/.*' \
      --certificate-oidc-issuer https://token.actions.githubusercontent.com
    ```
 
@@ -719,7 +719,7 @@ vérifie la signature et Falco qui surveille le comportement.
    kubectl apply -f deploy/k8s/30-service-netpol.yaml
 
    # Résoudre le digest de l'image et le mettre dans le manifest :
-   crane digest ghcr.io/fougere/flexwatch:master   # ou : docker buildx imagetools inspect
+   crane digest ghcr.io/sekuryn/flexwatch:main   # ou : docker buildx imagetools inspect
    # remplacer le digest de 20-deployment.yaml, puis :
    kubectl apply -f deploy/k8s/20-deployment.yaml
    kubectl -n flexwatch rollout status deploy/flexwatch

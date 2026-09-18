@@ -1,8 +1,8 @@
 # build output
 /bin/
 /dist/
-flexwatch
-flexwatch.exe
+/flexwatch
+/flexwatch.exe
 
 # local secrets / config — NEVER commit
 .env

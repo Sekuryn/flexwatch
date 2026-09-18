@@ -100,7 +100,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		APIBaseURL: envString("FLEX_API_BASE_URL", DefaultAPIBaseURL),
 		UserAgent: envString("FLEX_USER_AGENT",
-			"flexwatch/1.0 (+https://github.com/Fougere/flexwatch; portfolio DevSecOps, read-only)"),
+			"flexwatch/1.0 (+https://github.com/Sekuryn/flexwatch; portfolio DevSecOps, read-only)"),
 		MetricsAddr: envString("FLEX_METRICS_ADDR", ":2112"),
 
 		TelegramToken:      strings.TrimSpace(os.Getenv("TELEGRAM_TOKEN")),

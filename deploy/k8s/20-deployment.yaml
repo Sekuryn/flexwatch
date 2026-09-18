@@ -42,7 +42,7 @@ spec:
           # TOUJOURS un digest, jamais un tag mutable : c'est ce digest que
           # Kyverno vérifie comme signé par la CI (cf. policy/kyverno).
           # Remplacer par le digest affiché à la fin du job `image` de la CI.
-          image: ghcr.io/fougere/flexwatch@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          image: ghcr.io/sekuryn/flexwatch@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics

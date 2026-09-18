@@ -8,11 +8,11 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/Fougere/flexwatch/internal/communauto"
-	"github.com/Fougere/flexwatch/internal/geo"
-	"github.com/Fougere/flexwatch/internal/metrics"
-	"github.com/Fougere/flexwatch/internal/notify"
-	"github.com/Fougere/flexwatch/internal/store"
+	"github.com/Sekuryn/flexwatch/internal/communauto"
+	"github.com/Sekuryn/flexwatch/internal/geo"
+	"github.com/Sekuryn/flexwatch/internal/metrics"
+	"github.com/Sekuryn/flexwatch/internal/notify"
+	"github.com/Sekuryn/flexwatch/internal/store"
 )
 
 // maxBackoff plafonne le recul en cas de panne : au-delà, on ne recule plus,

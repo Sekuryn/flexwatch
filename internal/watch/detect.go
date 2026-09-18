@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/Fougere/flexwatch/internal/communauto"
+	"github.com/Sekuryn/flexwatch/internal/communauto"
 )
 
 // Diff est le résultat de la comparaison entre deux polls successifs.

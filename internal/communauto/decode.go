@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Fougere/flexwatch/internal/geo"
+	"github.com/Sekuryn/flexwatch/internal/geo"
 )
 
 // L'API Reservauto n'est pas documentée publiquement et sa casse de champs a

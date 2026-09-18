@@ -36,7 +36,7 @@ provider "aws" {
       Project     = "flexwatch"
       Environment = "prod"
       ManagedBy   = "terraform"
-      Repository  = "github.com/Fougere/flexwatch"
+      Repository  = "github.com/Sekuryn/flexwatch"
     }
   }
 }

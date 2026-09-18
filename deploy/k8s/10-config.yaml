@@ -25,4 +25,4 @@ data:
   FLEX_METRICS_ADDR: ":2112"
   FLEX_LOG_LEVEL: "info"
   FLEX_STORE_ENABLED: "false"
-  FLEX_USER_AGENT: "flexwatch/1.0 (+https://github.com/Fougere/flexwatch; portfolio DevSecOps, read-only)"
+  FLEX_USER_AGENT: "flexwatch/1.0 (+https://github.com/Sekuryn/flexwatch; portfolio DevSecOps, read-only)"

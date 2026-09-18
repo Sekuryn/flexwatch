@@ -57,7 +57,7 @@ ARG VERSION=dev
 LABEL org.opencontainers.image.title="flexwatch" \
       org.opencontainers.image.description="Detecteur de vehicules Communauto Flex (lecture seule, notify-first)" \
       org.opencontainers.image.version="${VERSION}" \
-      org.opencontainers.image.source="https://github.com/Fougere/flexwatch" \
+      org.opencontainers.image.source="https://github.com/Sekuryn/flexwatch" \
       org.opencontainers.image.licenses="MIT"
 
 COPY --from=build /out/flexwatch /flexwatch
