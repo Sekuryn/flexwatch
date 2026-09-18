@@ -1,0 +1,72 @@
+# CodeQL — analyse statique de sécurité (SAST) du code Go.
+#
+# POURQUOI CE FICHIER EXISTE : le ruleset du dépôt exige un résultat CodeQL
+# avant tout merge (règle `code_scanning`, seuils : alerts=errors,
+# security_alerts=high_or_higher). Sans ce workflow, l'exigence ne peut JAMAIS
+# être satisfaite et toutes les pull requests restent bloquées — c'est
+# exactement ce qui est arrivé à la PR Dependabot #1.
+#
+# Une règle de protection qui exige un outil non configuré ne protège rien :
+# elle bloque tout. Le bon correctif est de fournir l'outil, pas de retirer la
+# règle.
+#
+# CodeQL et golangci-lint/staticcheck ne se recouvrent pas : les linters
+# raisonnent fichier par fichier, CodeQL fait de l'analyse de flux de données
+# inter-procédurale (une entrée utilisateur qui atteint une commande, un SSRF,
+# un chemin de fichier non validé). Sur ce projet, la surface est mince — c'est
+# le but — mais l'analyse doit exister pour le prouver.
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Les requêtes CodeQL évoluent : un scan hebdomadaire trouve des choses que
+  # le dernier commit n'avait pas déclenchées.
+  schedule:
+    - cron: "23 5 * * 2"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: analyse CodeQL (go)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # Nécessaire pour remonter les alertes dans l'onglet Security.
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      # Le toolchain doit être en place AVANT init : CodeQL observe la
+      # compilation réelle pour construire sa base de données.
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: "1.27"
+
+      - name: initialisation
+        uses: github/codeql-action/init@v4
+        with:
+          languages: go
+          # Suite par défaut volontairement : `security-extended` ajoute des
+          # requêtes plus bruyantes, et le ruleset bloque les merges au seuil
+          # « errors ». On élargit une fois que la base est verte, pas avant.
+          build-mode: manual
+
+      # build-mode: manual — on compile nous-mêmes, exactement comme la CI, au
+      # lieu de laisser l'autobuild deviner. Plus rapide et plus fidèle.
+      - name: compilation observée par CodeQL
+        run: go build ./...
+
+      - name: analyse
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:go"
