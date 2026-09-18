@@ -342,7 +342,24 @@ Fichier de référence : **`.github/workflows/ci.yml`** (déjà écrit).
    viser 90 % global : une couverture gonflée par des tests sans assertion est
    pire qu'une couverture honnête de 70 %.
 
-7. **Épingler les actions par SHA** et auditer les workflows :
+7. **Épingler les actions par SHA** et auditer les workflows.
+
+   > **Fait le 2026-09-18.** `pinact` a épinglé les **18 actions** des deux
+   > workflows. Deux effets, pas un seul :
+   > - un tag (`@v7`) est mutable, il peut être repoussé sur un autre commit ;
+   >   un SHA ne l'est pas. C'est ce qui empêche qu'une action compromise
+   >   s'exécute avec les permissions du workflow ;
+   > - les **majeures flottantes** (`@v0`, `@v1`, `@v3`, `@v4`, `@v9`) étaient
+   >   les plus exposées — elles se mettaient à jour toutes seules, sans revue.
+   >   Elles sont maintenant figées sur des versions concrètes.
+   >
+   > Contrepartie assumée : plus rien ne se met à jour tout seul. C'est
+   > Dependabot qui prend le relais (PR hebdomadaire groupée, il met à jour le
+   > SHA **et** le commentaire de version). Et la régression est surveillée
+   > sans outil supplémentaire : SonarQube signale toute action non épinglée
+   > (`githubactions:S7637`), et c'est un check requis.
+
+   Les commandes :
    ```bash
    go install github.com/suzuki-shunsuke/pinact/cmd/pinact@latest
    pinact run                      # remplace @v5 par @<sha> # v5
