@@ -379,7 +379,24 @@ Fichier de référence : **`Dockerfile`** (déjà écrit).
    ```
 
 7. **Vérifier depuis un poste tiers** — c'est l'étape que tout le monde oublie,
-   et la seule qui prouve que la signature sert à quelque chose :
+   et la seule qui prouve que la signature sert à quelque chose. Le dépôt
+   fournit un script qui enchaîne les trois contrôles (signature, attestation
+   SBOM, et un **contrôle négatif** vérifiant qu'une autre identité est bien
+   refusée) :
+   ```bash
+   ./scripts/verify-image.sh sha256:<digest affiche par la CI>
+   ```
+
+   Deux pièges rencontrés en le construisant :
+   - `cosign verify ... | head` renvoie le code de `head`, donc **toujours 0**.
+     Un script de vérification qui annonce « OK » quoi qu'il arrive est pire
+     que pas de script ;
+   - le contrôle négatif n'a de sens que si le contrôle positif a réussi. Sur
+     un paquet privé sans authentification, il « passe » parce que le registre
+     refuse l'accès — pas parce que l'identité est mauvaise. Le script le
+     marque désormais « non concluant » dans ce cas.
+
+   Les commandes sous-jacentes, pour comprendre ce que fait le script :
    ```bash
    cosign verify ghcr.io/sekuryn/flexwatch@sha256:<digest> \
      --certificate-identity-regexp 'https://github.com/Sekuryn/flexwatch/.github/workflows/ci.yml@.*' \
