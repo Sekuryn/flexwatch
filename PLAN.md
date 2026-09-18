@@ -419,6 +419,25 @@ clé privée à stocker, faire tourner et perdre.
 - `cosign verify` réussit depuis une machine qui n'a jamais vu le dépôt ;
 - `trivy image` ne remonte aucun HIGH/CRITICAL corrigeable.
 
+> **Fait le 2026-09-18.** `./scripts/verify-image.sh` a validé la signature et
+> l'attestation SBOM de
+> `ghcr.io/sekuryn/flexwatch@sha256:7e71dbc2...`, et refusé une identité
+> étrangère. Le certificat Fulcio porte :
+> ```
+> Subject                  https://github.com/Sekuryn/flexwatch/.github/workflows/ci.yml@refs/heads/main
+> Issuer                   https://token.actions.githubusercontent.com
+> githubWorkflowSha        bd5c831722051180c42cf39f328e1c4c7ca822bb
+> githubWorkflowTrigger    push
+> ```
+> C'est la propriété qui compte : la signature relie l'image à un **commit
+> précis** et à un **workflow précis**. Personne ne peut produire une image
+> acceptée par Kyverno sans passer par ce workflow sur ce dépôt.
+>
+> Prérequis découvert au passage : rendre le dépôt public ne rend PAS le paquet
+> GHCR public. C'est un réglage séparé (Packages → settings → Change
+> visibility), et sans lui `cosign verify` échoue en `UNAUTHORIZED` — une
+> signature que personne ne peut vérifier ne sert à rien.
+
 ---
 
 ## Phase 4A — Architecture AWS : décision et préparation du compte

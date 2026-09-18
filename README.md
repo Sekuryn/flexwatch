@@ -187,6 +187,7 @@ Et sur les fichiers de référence du plan :
 | `promtool check rules` | **10 règles** valides |
 | `promtool check config` | syntaxe valide |
 | `trivy fs` (Trivy 0.74.0, scan identique à la CI) | 0 finding — 1 corrigé, 3 en exception datée |
+| `cosign verify` de l'image publiée (depuis un poste) | **signature + attestation SBOM valides**, identité étrangère refusée |
 
 Les exceptions Trivy sont dans **`.trivyignore.yaml`**, chacune avec son
 `statement` et son `expired_at` : rien n'est ignoré sans justification ni date
