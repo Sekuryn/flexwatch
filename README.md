@@ -6,6 +6,7 @@
 [![quality gate](https://sonarcloud.io/api/project_badges/measure?project=Sekuryn_flexwatch&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Sekuryn_flexwatch)
 [![couverture](https://sonarcloud.io/api/project_badges/measure?project=Sekuryn_flexwatch&metric=coverage)](https://sonarcloud.io/component_measures?id=Sekuryn_flexwatch&metric=coverage)
 [![dépendances tierces](https://img.shields.io/badge/d%C3%A9pendances%20tierces-0-brightgreen)](go.mod)
+[![licence](https://img.shields.io/github/license/Sekuryn/flexwatch)](LICENSE)
 
 Détecteur de véhicules **Communauto Flex** dans un rayon donné, en Go.
 Il surveille, il prévient. **Il ne réserve rien.**
@@ -292,6 +293,13 @@ débordement d'entier —, respect de `Retry-After`, format d'exposition
 Prometheus, et **l'absence de fuite du token Telegram dans les erreurs**.
 
 ---
+
+## Licence
+
+[MIT](LICENSE). C'est aussi la valeur déclarée par le label OCI
+`org.opencontainers.image.licenses` de l'image : les deux doivent rester
+alignés — une image qui annonce une licence absente du dépôt est une
+incohérence qu'un audit de conformité relève tout de suite.
 
 ## Suite : le vrai sujet
 
